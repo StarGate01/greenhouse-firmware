@@ -7,6 +7,8 @@ Clone this repository using `git clone --recurse-submodules` and open it up in t
 
 Copy `include/wifi_config.h.example` to `include/wifi_config.h` and configure your network. You can also edit `include/hardware_config.h` if your pin layout differs.
 
+For debugging connect the board via USB and open a serial console at 9600 BAUD.
+
 ## Hardware and Software Components
  - ESP-12F NodeMCU controller
    - [Arduino framework](https://www.arduino.cc/)
