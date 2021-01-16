@@ -13,7 +13,7 @@ Copy `include/wifi_config.h.example` to `include/wifi_config.h` and configure yo
  - KY-015 temperature and humidity sensor
    - [adafruit/DHT sensor library](https://platformio.org/lib/show/19/DHT%20sensor%20library)
    - [adafruit/Adafruit Unified Sensor](https://platformio.org/lib/show/31/Adafruit%20Unified%20Sensor)
- - MH-Sensor Series Flying Fish & Soild Sensor
+ - MH-Sensor Series Flying Fish & Soil Sensor
    - Analog input
  - Small submergible water pump
    - Digital output & power MOSFET
