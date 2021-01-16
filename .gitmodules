@@ -1,0 +1,4 @@
+[submodule "lib/ESPAsyncTCP"]
+	path = lib/ESPAsyncTCP
+	url = https://github.com/mhightower83/ESPAsyncTCP
+	branch = correct-ssl-_recv

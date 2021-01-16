@@ -1,0 +1,18 @@
+// WiFi
+#define WIFI_SSID "YOUR_SSID"
+#define WIFI_PASSWORD "YOUR_PASSWD"
+
+// MQTT
+#define MQTT_HOST IPAddress(192, 168, 1, 42)
+#define MQTT_PORT 1883
+#define MQTT_PUB_INTERVAL 10000
+#define MQTT_MSG_COOLDOWN 10
+#define MQTT_NEEDS_SSL 1
+#define MQTT_NEEDS_AUTH 1
+#if MQTT_NEEDS_AUTH
+#define MQTT_USERNAME "YOUR_USERNAME"
+#define MQTT_PASSWORD "YOUR_PASSWORD"
+#endif
+#define MQTT_PUB_TEMP "/greenhouse/dht/temperature"
+#define MQTT_PUB_HUM "/greenhouse/dht/humidity"
+#define MQTT_PUB_IDX "/greenhouse/dht/heatindex"

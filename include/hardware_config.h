@@ -1,0 +1,3 @@
+// DHT SENSOR
+#define DHT_PIN 5
+#define DHT_MODEL DHT11
