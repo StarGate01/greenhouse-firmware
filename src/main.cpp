@@ -22,6 +22,11 @@ WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
 Ticker wifiReconnectTimer;
 
+// State
+float temp = 0.0f, hum = 0.0f, hic = 0.0f, moist = 0.0f;
+unsigned long current = 0, prev_publish = 0, pump_start = 0;
+bool pump_did_reset = true;
+
 
 // Network handlers
 
@@ -53,10 +58,19 @@ void onWifiDisconnect(const WiFiEventStationModeDisconnected& event)
 	wifiReconnectTimer.once(2, connectToWifi);
 }
 
+void subscribeMqttTopic(const char* topic)
+{
+	uint16_t packetIdSub = mqttClient.subscribe(topic, 2);
+	Serial.printf("Subscribing at QoS 2, ID: %d\n", packetIdSub);
+}
+
 void onMqttConnect(bool sessionPresent)
 {
 	digitalWrite(LED_BUILTIN, LOW);
 	Serial.printf("Connected to MQTT. Session present: %d\n", sessionPresent);
+
+	// Subscribe to topics
+	subscribeMqttTopic(MQTT_PUB_PUMP);
 }
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) 
@@ -71,20 +85,40 @@ void onMqttPublish(uint16_t packetId)
 	Serial.printf("Publish acknowledged, ID: %d\n", packetId);
 }
 
-void publishMqttMessage(const char* topic, const char* payload)
+void publishMqttMessage(const char* topic, const char* payload, uint8_t qos = 1)
 {
-	uint16_t id = mqttClient.publish(topic, 1, true, payload);                            
-	Serial.printf("Publishing on topic %s at QoS 1, ID: %i, message: %s\n", topic, id, payload);
+	uint16_t id = mqttClient.publish(topic, qos, true, payload);                            
+	Serial.printf("Publishing on topic %s at QoS %d, ID: %i, message: %s\n", topic, qos, id, payload);
 
 	// Cooldown a bit to not overload the stack
 	delay(MQTT_MSG_COOLDOWN);
 }
 
+void onMqttSubscribe(uint16_t packetId, uint8_t qos) 
+{
+	Serial.printf("Subscribe acknowledged. ID: %d, qos: %d\n", packetId, qos);
+}
+
+void onMqttUnsubscribe(uint16_t packetId)
+{
+	Serial.printf("Unsubscribe acknowledged. ID: %d\n", packetId);
+}
+
 
 // Core logic
 
-float temp, hum, hic;
-unsigned long previousMillis = 0;
+void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
+{
+	// Handle pump state change
+	if(!strcmp(topic, MQTT_PUB_PUMP) && atoi(payload) == 1) 
+	{
+		pump_did_reset = false;
+		pump_start = millis();
+	}
+	
+  	Serial.printf("Publish received. topic: %s, payload: %s, qos: %d, dup: %d, retain %d, len: %d, index: %d, total: %d\n",
+  		topic, payload, properties.qos, properties.dup, properties.retain, len, index, total);
+}
 
 void setup() 
 {
@@ -92,8 +126,10 @@ void setup()
 	pinMode(LED_BUILTIN, OUTPUT);
 	digitalWrite(LED_BUILTIN, HIGH);
 
-	// Init sensors
+	// Init hardware
 	dht.begin();
+	pinMode(PUMP_PIN, OUTPUT);
+	digitalWrite(PUMP_PIN, LOW);
 
 	// Init network
 	wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
@@ -102,6 +138,9 @@ void setup()
 	mqttClient.onConnect(onMqttConnect);
 	mqttClient.onDisconnect(onMqttDisconnect);
 	mqttClient.onPublish(onMqttPublish);
+	mqttClient.onMessage(onMqttMessage);
+	mqttClient.onSubscribe(onMqttSubscribe);
+    mqttClient.onUnsubscribe(onMqttUnsubscribe);
 	mqttClient.setServer(MQTT_HOST, MQTT_PORT);
 #	if MQTT_NEEDS_SSL
 #		if !defined(ASYNC_TCP_SSL_ENABLED) || ASYNC_TCP_SSL_ENABLED == 0
@@ -118,11 +157,21 @@ void setup()
 
 void loop()
 {
-	// Ensure publishing interval is adhered to
-	unsigned long currentMillis = millis();
-	if (currentMillis - previousMillis >= MQTT_PUB_INTERVAL) 
+	unsigned long current = millis();
+
+	// Control pump
+	int pump_state = pump_start != 0 && (current - pump_start < PUMP_DURATION)? HIGH:LOW;
+	digitalWrite(PUMP_PIN, pump_state);
+	if(pump_state == LOW && !pump_did_reset)
 	{
-		previousMillis = currentMillis;
+		publishMqttMessage(MQTT_PUB_PUMP, "0", 2);
+		pump_did_reset = true;
+	}
+
+	// Ensure publishing interval is adhered to
+	if (current - prev_publish >= MQTT_PUB_INTERVAL) 
+	{
+		prev_publish = current;
 
 		// Read DHT sensor
 		hum = dht.readHumidity();
@@ -134,9 +183,13 @@ void loop()
 		}
 		hic = dht.computeHeatIndex(temp, hum, false);
 		
-		// Publish DHT messages, slow down a bit to now o
+		// Read soil sensor
+		moist = (float)map(analogRead(SOIL_PIN), 1024, 500, 0, 100);
+
+		// Publish DHT messages
 		publishMqttMessage(MQTT_PUB_HUM, String(hum).c_str());
 		publishMqttMessage(MQTT_PUB_TEMP, String(temp).c_str());
 		publishMqttMessage(MQTT_PUB_IDX, String(hic).c_str());
+		publishMqttMessage(MQTT_PUB_SOIL, String(moist).c_str());
 	}
 }
