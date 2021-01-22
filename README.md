@@ -15,6 +15,10 @@ For debugging connect the board via USB and open a serial console at 9600 BAUD.
  - KY-015 temperature and humidity sensor
    - [adafruit/DHT sensor library](https://platformio.org/lib/show/19/DHT%20sensor%20library)
    - [adafruit/Adafruit Unified Sensor](https://platformio.org/lib/show/31/Adafruit%20Unified%20Sensor)
+ - BH1750 GY-302 Lux sensor
+   - [claws/BH1750](https://platformio.org/lib/show/439/BH1750)
+ - VEML6070 UV sensor
+   - [adafruit/Adafruit VEML6070 Library](https://platformio.org/lib/show/2929/Adafruit%20VEML6070%20Library)
  - MH-Sensor Series Flying Fish & Soil Sensor
    - Analog input
  - Small submergible water pump
@@ -55,6 +59,24 @@ sensor greenhouse-soil-moist:
   state_topic: "/greenhouse/soil/moisture"
   unit_of_measurement: "%"
   device_class: humidity
+
+sensor greenhouse-sun-lux:
+  name: Greenhouse Sun Brightness
+  platform: mqtt
+  state_topic: "/greenhouse/sun/lux"
+  unit_of_measurement: "lx"
+  device_class: illuminance
+
+sensor greenhouse-sun-uv:
+  name: Greenhouse Sun UV
+  platform: mqtt
+  state_topic: "/greenhouse/sun/uv"
+  unit_of_measurement: "μW/cm²"
+
+sensor greenhouse-sun-uvindex:
+  name: Greenhouse Sun UV Index
+  platform: mqtt
+  state_topic: "/greenhouse/sun/uvindex"
 
 switch greenhouse-pump:
   name: Greenhouse Pump Power

@@ -4,14 +4,18 @@
 
 // Libs
 #include <Arduino.h>
-#include <DHT.h>
+#include <Wire.h>
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
 #include <AsyncMqttClient.h>
-
+#include <DHT.h>
+#include <BH1750.h>
+#include <Adafruit_VEML6070.h>
 
 // Sensors
 DHT dht(DHT_PIN, DHT_MODEL);
+BH1750 light;
+Adafruit_VEML6070 uvlight;
 
 // MQTT
 AsyncMqttClient mqttClient;
@@ -23,7 +27,8 @@ WiFiEventHandler wifiDisconnectHandler;
 Ticker wifiReconnectTimer;
 
 // State
-float temp = 0.0f, hum = 0.0f, hic = 0.0f, moist = 0.0f;
+float temp = 0.0f, hum = 0.0f, hic = 0.0f, moist = 0.0f, lux = 0.0f, uv = 0.0f;
+unsigned int uvi = 0;
 unsigned long current = 0, prev_publish = 0, pump_start = 0;
 bool pump_did_reset = true;
 
@@ -67,6 +72,8 @@ void subscribeMqttTopic(const char* topic)
 void onMqttConnect(bool sessionPresent)
 {
 	digitalWrite(LED_BUILTIN, LOW);
+	delay(100);
+	digitalWrite(LED_BUILTIN, HIGH);
 	Serial.printf("Connected to MQTT. Session present: %d\n", sessionPresent);
 
 	// Subscribe to topics
@@ -127,7 +134,10 @@ void setup()
 	digitalWrite(LED_BUILTIN, HIGH);
 
 	// Init hardware
+	Wire.begin();
 	dht.begin();
+	light.begin(BH1750::ONE_TIME_HIGH_RES_MODE);
+	uvlight.begin(VEML6070_1_T); 
 	pinMode(PUMP_PIN, OUTPUT);
 	digitalWrite(PUMP_PIN, LOW);
 
@@ -176,20 +186,27 @@ void loop()
 		// Read DHT sensor
 		hum = dht.readHumidity();
 		temp = dht.readTemperature(false);
-		if (isnan(hum) || isnan(temp)) 
-		{
-			Serial.println("Failed to read from DHT sensor!");
-			return;
-		}
-		hic = dht.computeHeatIndex(temp, hum, false);
+		if (!isnan(hum) && !isnan(temp)) hic = dht.computeHeatIndex(temp, hum, false);
 		
 		// Read soil sensor
 		moist = (float)map(analogRead(SOIL_PIN), 1024, 500, 0, 100);
+
+		// Read lux sensor
+		while (!light.measurementReady(true)) yield();
+		lux = light.readLightLevel();
+		light.configure(BH1750::ONE_TIME_HIGH_RES_MODE);
+
+		// Read uv sensor
+		uv = uvlight.readUV();
+		uvi = 0.4 * (uv * 5.625) / 1000;
 
 		// Publish DHT messages
 		publishMqttMessage(MQTT_PUB_HUM, String(hum).c_str());
 		publishMqttMessage(MQTT_PUB_TEMP, String(temp).c_str());
 		publishMqttMessage(MQTT_PUB_IDX, String(hic).c_str());
 		publishMqttMessage(MQTT_PUB_SOIL, String(moist).c_str());
+		publishMqttMessage(MQTT_PUB_LUX, String(lux).c_str());
+		publishMqttMessage(MQTT_PUB_UV, String(uv).c_str());
+		publishMqttMessage(MQTT_PUB_UVI, String(uvi).c_str());
 	}
 }
