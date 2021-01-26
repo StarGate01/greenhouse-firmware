@@ -1,10 +1,15 @@
 // DHT SENSOR
-#define DHT_PIN 12
-#define DHT_MODEL DHT11
+#define NUM_DHTS 1
+#define DHT_DEFS { DHT(12, DHT11) }
 
 // SOIL SENSOR
-#define SOIL_PIN A0
+#define NUM_SOILS 1
+#define SOIL_PINS { A0 }
 
-// PUMP
-#define PUMP_PIN 0
-#define PUMP_DURATION 3000
+// PUMPS
+#define NUM_PUMPS 2
+#define PUMP_PINS { 0, 13 }
+#define PUMP_DURATION 2000
+
+// LIGHT
+#define LIGHT_PIN 15S

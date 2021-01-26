@@ -3,210 +3,232 @@
 #include "wifi_config.h"
 
 // Libs
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
 #include <Arduino.h>
 #include <Wire.h>
-#include <ESP8266WiFi.h>
-#include <Ticker.h>
-#include <AsyncMqttClient.h>
 #include <DHT.h>
 #include <BH1750.h>
 #include <Adafruit_VEML6070.h>
 
 // Sensors
-DHT dht(DHT_PIN, DHT_MODEL);
+DHT dhts[NUM_DHTS] = DHT_DEFS;
 BH1750 light;
 Adafruit_VEML6070 uvlight;
 
-// MQTT
-AsyncMqttClient mqttClient;
-Ticker mqttReconnectTimer;
-
-// WiFi
-WiFiEventHandler wifiConnectHandler;
-WiFiEventHandler wifiDisconnectHandler;
-Ticker wifiReconnectTimer;
+// Network
+#if MQTT_NEEDS_ENCRYPTION
+    WiFiClientSecure wifi_client;
+#else
+    WiFiClient wifi_client;
+#endif
+PubSubClient mqtt_client(wifi_client);
+char mqtt_payload_buffer[16];
+char mqtt_topic_buffer[32];
 
 // State
-float temp = 0.0f, hum = 0.0f, hic = 0.0f, moist = 0.0f, lux = 0.0f, uv = 0.0f;
-unsigned int uvi = 0;
-unsigned long current = 0, prev_publish = 0, pump_start = 0;
-bool pump_did_reset = true;
-
-
-// Network handlers
-
-void connectToWifi() 
+struct sdata_t
 {
-	Serial.println("Connecting to Wi-Fi...");
-	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-}
+    float temp[NUM_DHTS] = {0};
+    float hum[NUM_DHTS] = {0};
+    float hic[NUM_DHTS] = {0};
+    float moist[NUM_SOILS] = {0};
+    float lux = 0.0f;
+    float uv = 0.0f;
+    unsigned int uvi = 0;
+} sensor_data;
 
-void connectToMqtt() 
+struct pump_t
 {
-	Serial.println("Connecting to MQTT...");
-	mqttClient.connect();
-}
+    unsigned int pin = 0;
+    unsigned long start = 0;
+    bool did_reset = true;
+} pumps[2];
 
-void onWifiConnect(const WiFiEventStationModeGotIP& event) 
-{
-	Serial.println("Connected to Wi-Fi.");
-	connectToMqtt();
-}
-
-void onWifiDisconnect(const WiFiEventStationModeDisconnected& event)
-{
-	digitalWrite(LED_BUILTIN, HIGH);
-	Serial.println("Disconnected from Wi-Fi.");
-
- 	// Ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-	mqttReconnectTimer.detach();
-	wifiReconnectTimer.once(2, connectToWifi);
-}
-
-void subscribeMqttTopic(const char* topic)
-{
-	uint16_t packetIdSub = mqttClient.subscribe(topic, 2);
-	Serial.printf("Subscribing at QoS 2, ID: %d\n", packetIdSub);
-}
-
-void onMqttConnect(bool sessionPresent)
-{
-	digitalWrite(LED_BUILTIN, LOW);
-	delay(100);
-	digitalWrite(LED_BUILTIN, HIGH);
-	Serial.printf("Connected to MQTT. Session present: %d\n", sessionPresent);
-
-	// Subscribe to topics
-	subscribeMqttTopic(MQTT_PUB_PUMP);
-}
-
-void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) 
-{
-	digitalWrite(LED_BUILTIN, HIGH);
-	Serial.println("Disconnected from MQTT.");
-	if (WiFi.isConnected()) mqttReconnectTimer.once(2, connectToMqtt);
-}
-
-void onMqttPublish(uint16_t packetId) 
-{
-	Serial.printf("Publish acknowledged, ID: %d\n", packetId);
-}
-
-void publishMqttMessage(const char* topic, const char* payload, uint8_t qos = 1)
-{
-	uint16_t id = mqttClient.publish(topic, qos, true, payload);                            
-	Serial.printf("Publishing on topic %s at QoS %d, ID: %i, message: %s\n", topic, qos, id, payload);
-
-	// Cooldown a bit to not overload the stack
-	delay(MQTT_MSG_COOLDOWN);
-}
-
-void onMqttSubscribe(uint16_t packetId, uint8_t qos) 
-{
-	Serial.printf("Subscribe acknowledged. ID: %d, qos: %d\n", packetId, qos);
-}
-
-void onMqttUnsubscribe(uint16_t packetId)
-{
-	Serial.printf("Unsubscribe acknowledged. ID: %d\n", packetId);
-}
+unsigned long current = 0, prev_publish = 0;
 
 
 // Core logic
 
-void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
+void mqtt_publish_buffer(const char* tbuffer, const char* pbuffer)
 {
-	// Handle pump state change
-	if(!strcmp(topic, MQTT_PUB_PUMP) && atoi(payload) == 1) 
-	{
-		pump_did_reset = false;
-		pump_start = millis();
-	}
-	
-  	Serial.printf("Publish received. topic: %s, payload: %s, qos: %d, dup: %d, retain %d, len: %d, index: %d, total: %d\n",
-  		topic, payload, properties.qos, properties.dup, properties.retain, len, index, total);
+    bool res = mqtt_client.publish(tbuffer, pbuffer);
+	Serial.printf("Published on topic %s, value: %s, ok: %d\n", tbuffer, pbuffer, res?1:0);
+    delay(MQTT_MSG_COOLDOWN);
 }
 
-void setup() 
+void mqtt_publish(const char* topic, float payload)
 {
-	Serial.begin(9600);
+    sprintf(mqtt_payload_buffer, "%.2f", payload);
+	mqtt_publish_buffer(topic, mqtt_payload_buffer);
+}
+
+void mqtt_publish(const char* topic, unsigned int payload)
+{
+    sprintf(mqtt_payload_buffer, "%d", payload);
+	mqtt_publish_buffer(topic, mqtt_payload_buffer);
+}
+
+void mqtt_publish_sensors(const sdata_t* data)
+{
+    for(int i=0; i<NUM_DHTS; i++)
+    {
+        sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_HUM, i);
+        mqtt_publish(mqtt_topic_buffer, data->hum[i]);
+        sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_TEMP, i);
+        mqtt_publish(mqtt_topic_buffer, data->temp[i]);
+        sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_IDX, i);
+        mqtt_publish(mqtt_topic_buffer, data->hic[i]);
+    }
+    for(int i=0; i<NUM_SOILS; i++)
+    {
+        sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_SOIL, i);
+        mqtt_publish(mqtt_topic_buffer, data->moist[i]);
+    }
+    mqtt_publish(MQTT_PUB_LUX, data->lux);
+    mqtt_publish(MQTT_PUB_UV, data->uv);
+    mqtt_publish(MQTT_PUB_UVI, data->uvi);
+}
+
+void mqtt_reconnect() 
+{
+    while (!mqtt_client.connected()) 
+    {
+        Serial.print("Connecting to MQTT broker... ");
+#       if MQTT_NEEDS_AUTH
+            if (mqtt_client.connect(MQTT_NAME, MQTT_USERNAME, MQTT_PASSWORD))
+#       else
+            if (mqtt_client.connect(MQTT_NAME))
+#       endif
+        {
+            Serial.println("MQTT connected");
+            digitalWrite(LED_BUILTIN, LOW);
+            for(int i=0; i<NUM_PUMPS; i++)
+            {
+                sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_PUMP, i);
+                bool res = mqtt_client.subscribe(mqtt_topic_buffer, 1);
+                Serial.printf("Subscribed to: %s, ok: %d\n", mqtt_topic_buffer, res?1:0);
+                mqtt_publish(mqtt_topic_buffer, 0u);
+            }
+        } 
+        else 
+        {
+            Serial.printf("MQTT connetion failed, rc=%d, retrying in 3s...\n", mqtt_client.state());
+            delay(3000);
+        }
+    }
+}
+
+void mqtt_callback(char* topic, byte* payload, unsigned int length) 
+{
+    // Handle pump state change
+	if(!strncmp(topic, MQTT_PUB_PUMP, strlen(MQTT_PUB_PUMP))) 
+	{
+		// pump_did_reset = false;
+		// pump_start = millis();
+        Serial.println("Got it");
+	}
+
+    Serial.printf("Got callback at %s\n", topic);
+}
+
+void setup()
+{
+    // Init debugging
+    Serial.begin(9600);
 	pinMode(LED_BUILTIN, OUTPUT);
 	digitalWrite(LED_BUILTIN, HIGH);
 
 	// Init hardware
 	Wire.begin();
-	dht.begin();
+    for(int i=0; i<NUM_DHTS; i++)
+    {
+	    dhts[i].begin();
+    }
 	light.begin(BH1750::ONE_TIME_HIGH_RES_MODE);
 	uvlight.begin(VEML6070_1_T); 
-	pinMode(PUMP_PIN, OUTPUT);
-	digitalWrite(PUMP_PIN, LOW);
+    int pump_pins[] = PUMP_PINS;
+    for(int i=0; i<NUM_PUMPS; i++)
+    {
+        pinMode(pump_pins[i], OUTPUT);
+        digitalWrite(pump_pins[i], LOW);
+        pumps[i].pin = pump_pins[i];
+    }
+    delay(10);
 
-	// Init network
-	wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
-	wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
-
-	mqttClient.onConnect(onMqttConnect);
-	mqttClient.onDisconnect(onMqttDisconnect);
-	mqttClient.onPublish(onMqttPublish);
-	mqttClient.onMessage(onMqttMessage);
-	mqttClient.onSubscribe(onMqttSubscribe);
-    mqttClient.onUnsubscribe(onMqttUnsubscribe);
-	mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-#	if MQTT_NEEDS_SSL
-#		if !defined(ASYNC_TCP_SSL_ENABLED) || ASYNC_TCP_SSL_ENABLED == 0
-#			error MQTT_NEEDS_SSL is defined, but project is not being compiled with ASYNC_TCP_SSL_ENABLED=1
-#		else
-			mqttClient.setSecure(true);
-#		endif
-#	endif 
-#	if MQTT_NEEDS_AUTH
-		mqttClient.setCredentials(MQTT_USERNAME, MQTT_PASSWORD);
-#	endif
-	connectToWifi();
+    // Init network
+    Serial.println("Connecting to WiFi... ");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) yield();
+    Serial.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
+#   if MQTT_NEEDS_ENCRYPTION
+        wifi_client.setFingerprint(MQTT_FINGERPRINT);
+#   endif
+    mqtt_client.setServer(MQTT_HOST, MQTT_PORT);
+    mqtt_client.setCallback(mqtt_callback);
 }
 
-void loop()
-{
-	unsigned long current = millis();
 
-	// Control pump
-	int pump_state = pump_start != 0 && (current - pump_start < PUMP_DURATION)? HIGH:LOW;
-	digitalWrite(PUMP_PIN, pump_state);
-	if(pump_state == LOW && !pump_did_reset)
-	{
-		publishMqttMessage(MQTT_PUB_PUMP, "0", 2);
-		pump_did_reset = true;
-	}
+
+void loop() 
+{
+    // Ensure MQTT connection
+    if (!mqtt_client.connected()) 
+    {
+        digitalWrite(LED_BUILTIN, HIGH);
+        mqtt_reconnect();
+    }
+
+    current = millis();
+
+	// Control pumps
+    for(int i=0; i<NUM_PUMPS; i++)
+    {
+        int pump_state = pumps[i].start != 0 && (current - pumps[i].start < PUMP_DURATION)? HIGH:LOW;
+        digitalWrite(pumps[i].pin, pump_state);
+        if(pump_state == LOW && !pumps[i].did_reset)
+        {
+            sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_PUMP, i);
+            mqtt_publish(mqtt_topic_buffer, 0u);
+            pumps[i].did_reset = true;
+        }
+    }
 
 	// Ensure publishing interval is adhered to
 	if (current - prev_publish >= MQTT_PUB_INTERVAL) 
 	{
 		prev_publish = current;
 
-		// Read DHT sensor
-		hum = dht.readHumidity();
-		temp = dht.readTemperature(false);
-		if (!isnan(hum) && !isnan(temp)) hic = dht.computeHeatIndex(temp, hum, false);
+		// Read DHT sensors
+        for(int i=0; i<NUM_DHTS; i++)
+        {
+            sensor_data.hum[i] = dhts[i].readHumidity();
+            sensor_data.temp[i] = dhts[i].readTemperature(false);
+            if (!isnan(sensor_data.hum[i]) && !isnan(sensor_data.temp[i])) 
+            {
+                sensor_data.hic[i] = dhts[i].computeHeatIndex(sensor_data.temp[i], sensor_data.hum[i], false);
+            }
+        }
 		
-		// Read soil sensor
-		moist = (float)map(analogRead(SOIL_PIN), 1024, 500, 0, 100);
+		// Read soil sensors
+        int soil_pins[] = SOIL_PINS;
+        for(int i=0; i<NUM_SOILS; i++)
+        {
+		    sensor_data.moist[i] = (float)map(analogRead(soil_pins[i]), 1024, 500, 0, 100);
+        }
 
 		// Read lux sensor
 		while (!light.measurementReady(true)) yield();
-		lux = light.readLightLevel();
+		sensor_data.lux = light.readLightLevel();
 		light.configure(BH1750::ONE_TIME_HIGH_RES_MODE);
 
 		// Read uv sensor
-		uv = uvlight.readUV();
-		uvi = 0.4 * (uv * 5.625) / 1000;
+		sensor_data.uv = uvlight.readUV();
+		sensor_data.uvi = 0.4 * (sensor_data.uv * 5.625) / 1000;
 
 		// Publish DHT messages
-		publishMqttMessage(MQTT_PUB_HUM, String(hum).c_str());
-		publishMqttMessage(MQTT_PUB_TEMP, String(temp).c_str());
-		publishMqttMessage(MQTT_PUB_IDX, String(hic).c_str());
-		publishMqttMessage(MQTT_PUB_SOIL, String(moist).c_str());
-		publishMqttMessage(MQTT_PUB_LUX, String(lux).c_str());
-		publishMqttMessage(MQTT_PUB_UV, String(uv).c_str());
-		publishMqttMessage(MQTT_PUB_UVI, String(uvi).c_str());
+        mqtt_publish_sensors(&sensor_data);
 	}
+
+    mqtt_client.loop();
 }
