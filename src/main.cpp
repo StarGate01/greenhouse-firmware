@@ -121,15 +121,20 @@ void mqtt_reconnect()
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length) 
 {
-    // Handle pump state change
-	if(!strncmp(topic, MQTT_PUB_PUMP, strlen(MQTT_PUB_PUMP))) 
-	{
-		// pump_did_reset = false;
-		// pump_start = millis();
-        Serial.println("Got it");
-	}
+    Serial.printf("Got subscription callback at %s: %.*s\n", topic, length, payload);
 
-    Serial.printf("Got callback at %s\n", topic);
+    // Handle pump state change
+    size_t pump_base_len = strlen(MQTT_PUB_PUMP);
+	if(!strncmp(topic, MQTT_PUB_PUMP, pump_base_len)) 
+	{
+        int index = atoi(topic + pump_base_len + 1);
+        if(length > 0 && payload[0] == '1')
+        {
+            pumps[index].did_reset = false;
+            pumps[index].start = millis();
+            Serial.printf("Got pump command, index: %d\n", index);
+        }
+	}
 }
 
 void setup()
