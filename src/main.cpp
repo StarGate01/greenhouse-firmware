@@ -103,6 +103,10 @@ void mqtt_reconnect()
         {
             Serial.println("MQTT connected");
             digitalWrite(LED_BUILTIN, LOW);
+            delay(200);
+            digitalWrite(LED_BUILTIN, HIGH);
+
+            // Subscribe to pumps
             for(int i=0; i<NUM_PUMPS; i++)
             {
                 sprintf(mqtt_topic_buffer, "%s/%d", MQTT_PUB_PUMP, i);
@@ -110,10 +114,15 @@ void mqtt_reconnect()
                 Serial.printf("Subscribed to: %s, ok: %d\n", mqtt_topic_buffer, res?1:0);
                 mqtt_publish(mqtt_topic_buffer, 0u);
             }
+
+            // Subscribe to light
+            bool res = mqtt_client.subscribe(MQTT_PUB_LIGHT, 1);
+            Serial.printf("Subscribed to: %s, ok: %d\n", MQTT_PUB_LIGHT, res?1:0);
+            mqtt_publish(MQTT_PUB_LIGHT, 0u);
         } 
         else 
         {
-            Serial.printf("MQTT connetion failed, rc=%d, retrying in 3s...\n", mqtt_client.state());
+            Serial.printf("MQTT connection failed, rc=%d, retrying in 3s...\n", mqtt_client.state());
             delay(3000);
         }
     }
@@ -133,6 +142,20 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
             pumps[index].did_reset = false;
             pumps[index].start = millis();
             Serial.printf("Got pump command, index: %d\n", index);
+        }
+	}
+
+    //Handle light state change
+	if(!strcmp(topic, MQTT_PUB_LIGHT)) 
+	{
+        if(length > 0)
+        {
+            char buf[length + 1];
+            memcpy(buf, payload, length);
+            buf[length] = 0;
+            int value = min(PWMRANGE, max(0, atoi(buf)));
+            analogWrite(LIGHT_PIN, value);
+            Serial.printf("Got light command, state: %d\n", value);
         }
 	}
 }
@@ -180,7 +203,6 @@ void loop()
     // Ensure MQTT connection
     if (!mqtt_client.connected()) 
     {
-        digitalWrite(LED_BUILTIN, HIGH);
         mqtt_reconnect();
     }
 
