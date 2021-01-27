@@ -19,13 +19,12 @@ For debugging connect the board via USB and open a serial console at 9600 BAUD.
    - [claws/BH1750](https://platformio.org/lib/show/439/BH1750)
  - VEML6070 UV sensor
    - [adafruit/Adafruit VEML6070 Library](https://platformio.org/lib/show/2929/Adafruit%20VEML6070%20Library)
- - MH-Sensor Series Flying Fish & Soil Sensor
-   - Analog input
+ - MH-Sensor Series Flying Fish & Soil Sensor via ADS115
+   - [adafruit/Adafruit ADS1X15](https://platformio.org/lib/show/342/Adafruit%20ADS1X15)
  - Small submergible water pump
    - Digital output & power MOSFET
  - MQTT client
-   - [ottowinter/AsyncMqttClient-esphome](https://platformio.org/lib/show/6759/AsyncMqttClient-esphome)
-   - Fork of [me-no-dev/ESPAsyncTCP](https://platformio.org/lib/show/305/ESPAsyncTCP): [mhightower83/ESPAsyncTCP](https://github.com/mhightower83/ESPAsyncTCP/tree/correct-ssl-_recv), contains SSL patches
+   - [knolleary/PubSubClient](https://platformio.org/lib/show/89/PubSubClient)
 
 ## Home Assistant Example
 

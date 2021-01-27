@@ -10,11 +10,17 @@
 #include <DHT.h>
 #include <BH1750.h>
 #include <Adafruit_VEML6070.h>
+#include <Adafruit_ADS1015.h>
 
 // Sensors
 DHT dhts[NUM_DHTS] = DHT_DEFS;
 BH1750 light;
 Adafruit_VEML6070 uvlight;
+Adafruit_ADS1015 soil;
+static const int pump_pins[] = PUMP_PINS;
+static const int soil_indices[] = SOIL_INDICES;
+static const int soil_min[] = SOIL_MIN;
+static const int soil_max[] = SOIL_MAX;
 
 // Network
 #if MQTT_NEEDS_ENCRYPTION
@@ -156,13 +162,13 @@ void setup()
     }
 	light.begin(BH1750::ONE_TIME_HIGH_RES_MODE);
 	uvlight.begin(VEML6070_1_T); 
-    int pump_pins[] = PUMP_PINS;
     for(int i=0; i<NUM_PUMPS; i++)
     {
         pinMode(pump_pins[i], OUTPUT);
         digitalWrite(pump_pins[i], LOW);
         pumps[i].pin = pump_pins[i];
     }
+    soil.begin();
     delay(10);
 
     // Init network
@@ -219,10 +225,10 @@ void loop()
         }
 		
 		// Read soil sensors
-        int soil_pins[] = SOIL_PINS;
         for(int i=0; i<NUM_SOILS; i++)
         {
-		    sensor_data.moist[i] = (float)map(analogRead(soil_pins[i]), 1024, 500, 0, 100);
+            uint16_t value = soil.readADC_SingleEnded(soil_indices[i]);
+		    sensor_data.moist[i] = map((float)value, (float)soil_max[i], (float)soil_min[i], 0.0f, 100.0f);
         }
 
 		// Read lux sensor
