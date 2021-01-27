@@ -31,31 +31,59 @@ For debugging connect the board via USB and open a serial console at 9600 BAUD.
 Assuming you have set up a MQTT Broker like [Mosquitto](https://mosquitto.org/) and connected it to [Home Assistant](https://www.home-assistant.io/), you can create a simple integration like this:
 
 ```yaml
-sensor greenhouse-air-temp:
-  name: Greenhouse Air Temperature
+sensor greenhouse-air-temp-0:
+  name: Greenhouse Air 0 Temperature
   platform: mqtt
-  state_topic: "/greenhouse/air/temperature"
+  state_topic: "/greenhouse/air/temperature/0"
   unit_of_measurement: "°C"
   device_class: temperature
 
-sensor greenhouse-air-hum:
-  name: Greenhouse Air Humidity
+sensor greenhouse-air-hum-0:
+  name: Greenhouse Air 0 Humidity
   platform: mqtt
-  state_topic: "/greenhouse/air/humidity"
+  state_topic: "/greenhouse/air/humidity/0"
   unit_of_measurement: "%"
   device_class: humidity
 
-sensor greenhouse-air-hidx:
-  name: Greenhouse Air Heat Index
+sensor greenhouse-air-hidx-0:
+  name: Greenhouse Air 0 Heat Index
   platform: mqtt
-  state_topic: "/greenhouse/air/heatindex"
+  state_topic: "/greenhouse/air/heatindex/0"
   unit_of_measurement: "°C"
   device_class: temperature
 
-sensor greenhouse-soil-moist:
-  name: Greenhouse Soil Moisture
+sensor greenhouse-soil-moist-0:
+  name: Greenhouse Soil 0 Moisture
   platform: mqtt
-  state_topic: "/greenhouse/soil/moisture"
+  state_topic: "/greenhouse/soil/moisture/0"
+  unit_of_measurement: "%"
+  device_class: humidity
+
+sensor greenhouse-air-temp-1:
+  name: Greenhouse Air 1 Temperature
+  platform: mqtt
+  state_topic: "/greenhouse/air/temperature/1"
+  unit_of_measurement: "°C"
+  device_class: temperature
+
+sensor greenhouse-air-hum-1:
+  name: Greenhouse Air 1 Humidity
+  platform: mqtt
+  state_topic: "/greenhouse/air/humidity/1"
+  unit_of_measurement: "%"
+  device_class: humidity
+
+sensor greenhouse-air-hidx-1:
+  name: Greenhouse Air 1 Heat Index
+  platform: mqtt
+  state_topic: "/greenhouse/air/heatindex/1"
+  unit_of_measurement: "°C"
+  device_class: temperature
+
+sensor greenhouse-soil-moist-1:
+  name: Greenhouse Soil 1 Moisture
+  platform: mqtt
+  state_topic: "/greenhouse/soil/moisture/1"
   unit_of_measurement: "%"
   device_class: humidity
 
@@ -77,12 +105,21 @@ sensor greenhouse-sun-uvindex:
   platform: mqtt
   state_topic: "/greenhouse/sun/uvindex"
 
-switch greenhouse-pump:
-  name: Greenhouse Pump Power
+switch greenhouse-pump-0:
+  name: Greenhouse Pump 0 Power
   platform: mqtt
-  command_topic: "/greenhouse/pump/power"
+  command_topic: "/greenhouse/pump/power/0"
   qos: 2
   payload_off: 0
   payload_on: 1
-  state_topic: "/greenhouse/pump/power"
+  state_topic: "/greenhouse/pump/power/0"
+
+switch greenhouse-pump-1:
+  name: Greenhouse Pump 1 Power
+  platform: mqtt
+  command_topic: "/greenhouse/pump/power/1"
+  qos: 2
+  payload_off: 0
+  payload_on: 1
+  state_topic: "/greenhouse/pump/power/1"
 ```
