@@ -10,6 +10,3 @@
 #define NUM_PUMPS 2
 #define PUMP_PINS { 14, 13 }
 #define PUMP_DURATION 2000
-
-// LIGHT
-#define LIGHT_PIN 15
