@@ -124,4 +124,22 @@ switch greenhouse-pump-1:
   payload_off: 0
   payload_on: 1
   state_topic: "/greenhouse/pump/power/1"
+
+fan greenhouse-fan:
+  name: Greenhouse Fan
+  platform: mqtt
+  command_topic: "/greenhouse/fan/power"
+  state_topic: "/greenhouse/fan/power"
+  qos: 0
+  speed_state_topic: "/greenhouse/fan/power"
+  speed_command_topic: "/greenhouse/fan/power"
+  payload_on: 1023
+  payload_off: 0
+  payload_low_speed: 800
+  payload_medium_speed: 900
+  payload_high_speed: 1023
+  speeds:
+    - low
+    - medium
+    - high
 ```
