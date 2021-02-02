@@ -121,10 +121,10 @@ void mqtt_reconnect()
                 mqtt_publish(mqtt_topic_buffer, 0u);
             }
 
-            // Subscribe to light
-            bool res = mqtt_client.subscribe(MQTT_PUB_LIGHT, 1);
-            Serial.printf("Subscribed to: %s, ok: %d\n", MQTT_PUB_LIGHT, res?1:0);
-            mqtt_publish(MQTT_PUB_LIGHT, 0u);
+            // Subscribe to fan
+            bool res = mqtt_client.subscribe(MQTT_PUB_FAN, 1);
+            Serial.printf("Subscribed to: %s, ok: %d\n", MQTT_PUB_FAN, res?1:0);
+            mqtt_publish(MQTT_PUB_FAN, 0u);
         } 
         else 
         {
@@ -151,8 +151,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
         }
 	}
 
-    //Handle light state change
-	if(!strcmp(topic, MQTT_PUB_LIGHT)) 
+    //Handle fan state change
+	if(!strcmp(topic, MQTT_PUB_FAN)) 
 	{
         if(length > 0)
         {
@@ -160,8 +160,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
             memcpy(buf, payload, length);
             buf[length] = 0;
             int value = min(PWMRANGE, max(0, atoi(buf)));
-            analogWrite(LIGHT_PIN, value);
-            Serial.printf("Got light command, state: %d\n", value);
+            analogWrite(FAN_PIN, value);
+            Serial.printf("Got fan command, state: %d\n", value);
         }
 	}
 }
@@ -187,6 +187,8 @@ void setup()
         digitalWrite(pump_pins[i], LOW);
         pumps[i].pin = pump_pins[i];
     }
+    pinMode(FAN_PIN, OUTPUT);
+    digitalWrite(FAN_PIN, LOW);
     soil.begin();
     delay(10);
 

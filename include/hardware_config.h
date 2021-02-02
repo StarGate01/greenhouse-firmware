@@ -13,5 +13,5 @@
 #define PUMP_PINS { 14, 13 }
 #define PUMP_DURATION 2000
 
-// LIGHT
-#define LIGHT_PIN 15
+// FAN
+#define FAN_PIN 15

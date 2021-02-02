@@ -22,7 +22,7 @@
 #define MQTT_PUB_IDX "/greenhouse/air/heatindex"
 #define MQTT_PUB_SOIL "/greenhouse/soil/moisture"
 #define MQTT_PUB_PUMP "/greenhouse/pump/power"
-#define MQTT_PUB_LIGHT "/greenhouse/light/power"
+#define MQTT_PUB_FAN "/greenhouse/fan/power"
 #define MQTT_PUB_LUX "/greenhouse/sun/lux"
 #define MQTT_PUB_UV "/greenhouse/sun/uv"
 #define MQTT_PUB_UVI "/greenhouse/sun/uvindex"
