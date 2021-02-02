@@ -188,7 +188,7 @@ void setup()
         pumps[i].pin = pump_pins[i];
     }
     pinMode(FAN_PIN, OUTPUT);
-    digitalWrite(FAN_PIN, LOW);
+    analogWrite(FAN_PIN, 0);
     soil.begin();
     delay(10);
 
