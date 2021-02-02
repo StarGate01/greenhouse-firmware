@@ -21,8 +21,10 @@ For debugging connect the board via USB and open a serial console at 9600 BAUD.
    - [adafruit/Adafruit VEML6070 Library](https://platformio.org/lib/show/2929/Adafruit%20VEML6070%20Library)
  - MH-Sensor Series Flying Fish & Soil Sensor via ADS115
    - [adafruit/Adafruit ADS1X15](https://platformio.org/lib/show/342/Adafruit%20ADS1X15)
- - Small submergible water pump
+ - Small submergible water pumps
    - Digital output & power MOSFET
+ - Small 5V PC Fans
+   - PWM output & power MOSFET
  - MQTT client
    - [knolleary/PubSubClient](https://platformio.org/lib/show/89/PubSubClient)
 
