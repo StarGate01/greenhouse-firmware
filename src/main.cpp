@@ -124,7 +124,7 @@ void mqtt_reconnect()
             // Subscribe to fan
             bool res = mqtt_client.subscribe(MQTT_PUB_FAN, 1);
             Serial.printf("Subscribed to: %s, ok: %d\n", MQTT_PUB_FAN, res?1:0);
-            mqtt_publish(MQTT_PUB_FAN, 0u);
+            mqtt_publish(MQTT_PUB_FAN, 900u);
         } 
         else 
         {
@@ -188,7 +188,7 @@ void setup()
         pumps[i].pin = pump_pins[i];
     }
     pinMode(FAN_PIN, OUTPUT);
-    analogWrite(FAN_PIN, 0);
+    analogWrite(FAN_PIN, 900);
     soil.begin();
     delay(10);
 
