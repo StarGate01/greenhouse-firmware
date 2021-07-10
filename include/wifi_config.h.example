@@ -1,21 +1,21 @@
 // WiFi
-#define WIFI_SSID "YOUR_SSID"
-#define WIFI_PASSWORD "YOUR_PASSWD"
+#define WIFI_SSID "YOUR_SSID" // Dummy data, change this
+#define WIFI_PASSWORD "YOUR_PASSWD" // Dummy data, change this
 
 // MQTT
-#define MQTT_NAME "ESP-Greenhouse"
-#define MQTT_HOST "192.168.0.42"
-#define MQTT_PORT 8883
+#define MQTT_NAME "ESP-Greenhouse" // Change this if you want to
+#define MQTT_HOST "192.168.0.42" // Dummy data, change this
+#define MQTT_PORT 8883 // Dummy data, change this if needed
 #define MQTT_PUB_INTERVAL 10000
 #define MQTT_MSG_COOLDOWN 100
-#define MQTT_NEEDS_ENCRYPTION 1
+#define MQTT_NEEDS_ENCRYPTION 1 // Change this if needed
 #if MQTT_NEEDS_ENCRYPTION
-#define MQTT_FINGERPRINT "9F B6 69 93 2B C3 E6 31 48 F7 BC 60 FB A8 79 FB DA FB 2A EA"
+    #define MQTT_FINGERPRINT "9F B6 69 93 2B C3 E6 31 48 F7 BC 60 FB A8 79 FB DA FB 2A EA"  // Dummy data, change this if needed
 #endif
-#define MQTT_NEEDS_AUTH 0
+#define MQTT_NEEDS_AUTH 0 // Change this if needed
 #if MQTT_NEEDS_AUTH
-#define MQTT_USERNAME "YOUR_USERNAME"
-#define MQTT_PASSWORD "YOUR_PASSWORD"
+    #define MQTT_USERNAME "YOUR_USERNAME"  // Dummy data, change this if needed
+    #define MQTT_PASSWORD "YOUR_PASSWORD"  // Dummy data, change this if needed
 #endif
 #define MQTT_PUB_TEMP "/greenhouse/air/temperature"
 #define MQTT_PUB_HUM "/greenhouse/air/humidity"

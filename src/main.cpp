@@ -59,20 +59,20 @@ unsigned long current = 0, prev_publish = 0;
 void mqtt_publish_buffer(const char* tbuffer, const char* pbuffer)
 {
     bool res = mqtt_client.publish(tbuffer, pbuffer);
-	Serial.printf("Published on topic %s, value: %s, ok: %d\n", tbuffer, pbuffer, res?1:0);
+    Serial.printf("Published on topic %s, value: %s, ok: %d\n", tbuffer, pbuffer, res?1:0);
     delay(MQTT_MSG_COOLDOWN);
 }
 
 void mqtt_publish(const char* topic, float payload)
 {
     sprintf(mqtt_payload_buffer, "%.2f", payload);
-	mqtt_publish_buffer(topic, mqtt_payload_buffer);
+    mqtt_publish_buffer(topic, mqtt_payload_buffer);
 }
 
 void mqtt_publish(const char* topic, unsigned int payload)
 {
     sprintf(mqtt_payload_buffer, "%d", payload);
-	mqtt_publish_buffer(topic, mqtt_payload_buffer);
+    mqtt_publish_buffer(topic, mqtt_payload_buffer);
 }
 
 void mqtt_publish_sensors(const sdata_t* data)
@@ -140,8 +140,8 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
 
     // Handle pump state change
     size_t pump_base_len = strlen(MQTT_PUB_PUMP);
-	if(!strncmp(topic, MQTT_PUB_PUMP, pump_base_len)) 
-	{
+    if(!strncmp(topic, MQTT_PUB_PUMP, pump_base_len)) 
+    {
         int index = atoi(topic + pump_base_len + 1);
         if(length > 0 && payload[0] == '1')
         {
@@ -149,11 +149,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
             pumps[index].start = millis();
             Serial.printf("Got pump command, index: %d\n", index);
         }
-	}
+    }
 
     //Handle fan state change
-	if(!strcmp(topic, MQTT_PUB_FAN)) 
-	{
+    if(!strcmp(topic, MQTT_PUB_FAN)) 
+    {
         if(length > 0)
         {
             char buf[length + 1];
@@ -163,24 +163,24 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
             analogWrite(FAN_PIN, value);
             Serial.printf("Got fan command, state: %d\n", value);
         }
-	}
+    }
 }
 
 void setup()
 {
     // Init debugging
     Serial.begin(9600);
-	pinMode(LED_BUILTIN, OUTPUT);
-	digitalWrite(LED_BUILTIN, HIGH);
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);
 
-	// Init hardware
-	Wire.begin();
+    // Init hardware
+    Wire.begin();
     for(int i=0; i<NUM_DHTS; i++)
     {
-	    dhts[i].begin();
+        dhts[i].begin();
     }
-	light.begin(BH1750::ONE_TIME_HIGH_RES_MODE);
-	uvlight.begin(VEML6070_1_T); 
+    light.begin(BH1750::ONE_TIME_HIGH_RES_MODE);
+    uvlight.begin(VEML6070_1_T); 
     for(int i=0; i<NUM_PUMPS; i++)
     {
         pinMode(pump_pins[i], OUTPUT);
@@ -216,7 +216,7 @@ void loop()
 
     current = millis();
 
-	// Control pumps
+    // Control pumps
     for(int i=0; i<NUM_PUMPS; i++)
     {
         int pump_state = pumps[i].start != 0 && (current - pumps[i].start < PUMP_DURATION)? HIGH:LOW;
@@ -229,12 +229,12 @@ void loop()
         }
     }
 
-	// Ensure publishing interval is adhered to
-	if (current - prev_publish >= MQTT_PUB_INTERVAL) 
-	{
-		prev_publish = current;
+    // Ensure publishing interval is adhered to
+    if (current - prev_publish >= MQTT_PUB_INTERVAL) 
+    {
+        prev_publish = current;
 
-		// Read DHT sensors
+        // Read DHT sensors
         for(int i=0; i<NUM_DHTS; i++)
         {
             sensor_data.hum[i] = dhts[i].readHumidity();
@@ -244,26 +244,26 @@ void loop()
                 sensor_data.hic[i] = dhts[i].computeHeatIndex(sensor_data.temp[i], sensor_data.hum[i], false);
             }
         }
-		
-		// Read soil sensors
+        
+        // Read soil sensors
         for(int i=0; i<NUM_SOILS; i++)
         {
             uint16_t value = soil.readADC_SingleEnded(soil_indices[i]);
-		    sensor_data.moist[i] = map((float)value, (float)soil_max[i], (float)soil_min[i], 0.0f, 100.0f);
+            sensor_data.moist[i] = map((float)value, (float)soil_max[i], (float)soil_min[i], 0.0f, 100.0f);
         }
 
-		// Read lux sensor
-		while (!light.measurementReady(true)) yield();
-		sensor_data.lux = light.readLightLevel();
-		light.configure(BH1750::ONE_TIME_HIGH_RES_MODE);
+        // Read lux sensor
+        while (!light.measurementReady(true)) yield();
+        sensor_data.lux = light.readLightLevel();
+        light.configure(BH1750::ONE_TIME_HIGH_RES_MODE);
 
-		// Read uv sensor
-		sensor_data.uv = uvlight.readUV();
-		sensor_data.uvi = 0.4 * (sensor_data.uv * 5.625) / 1000;
+        // Read uv sensor
+        sensor_data.uv = uvlight.readUV();
+        sensor_data.uvi = 0.4 * (sensor_data.uv * 5.625) / 1000;
 
-		// Publish DHT messages
+        // Publish DHT messages
         mqtt_publish_sensors(&sensor_data);
-	}
+    }
 
     mqtt_client.loop();
 }
